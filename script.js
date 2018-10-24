@@ -2,15 +2,16 @@
 
     var app = angular.module("githubViewer", []);
 
-    var MainController = function ($scope, $http) {
+    var MainController = function ($scope, github, $interval, $anchorScroll, $location) {
 
-        var onUserComplete = function (response) {
-            $scope.user = response.data;
-            $http.get($scope.user.repos_url)
-                .then(onRepos, onError);
+        var onUserComplete = function (data) {
+            $scope.user = data;
+            github.getRepos($scope.user).then(onRepos, onError);
         }
-        var onRepos = function (response) {
-            $scope.repos = response.data;
+        var onRepos = function (data) {
+            $scope.repos = data;
+            $location.hash("userDetails");
+            $anchorScroll();
         }
 
         var onError = function (reason) {
@@ -19,15 +20,34 @@
 
         $scope.search = function (username) {
 
-            $http.get("https://api.github.com/users/" + username)
-                .then(onUserComplete, onError);
+            github.getUser(username).then(onUserComplete, onError);
 
+            if (countdownInterval) {
+                $interval.cancel(countdownInterval);
+                $scope.countdown = null;
+            }
+
+        }
+
+        var countdownInterval = null;
+        var decrementCountdown = function () {
+            $scope.countdown -= 1;
+            if ($scope.countdown < 1) {
+                $scope.search($scope.username);
+            }
+        }
+
+        var startCountdown = function () {
+            countdownInterval = $interval(decrementCountdown, 1000, $scope.countdown);
         }
 
         $scope.username = "angular";
         $scope.repoSortOrder = "-stargazers_count";
-        $scope.message = "Github Viewer"
+        $scope.message = "Github Viewer";
+        $scope.countdown = 5;
+        startCountdown();
+
     }
 
-    app.controller("MainController", ["$scope", "$http", MainController]);
+    app.controller("MainController", ["$scope", "github", "$interval", "$anchorScroll", "$location", MainController]);
 }());
